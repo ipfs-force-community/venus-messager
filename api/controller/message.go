@@ -25,7 +25,7 @@ func (message Message) PushMessage(ctx context.Context, msg *venusTypes.Unsigned
 		State:           types.UnFillMsg,
 	})
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return newId.String(), nil
 }

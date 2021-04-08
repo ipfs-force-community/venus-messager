@@ -88,6 +88,7 @@ func UseMiddleware(log *logrus.Logger, r *gin.Engine) error {
 }
 
 func InitRouter(log *logrus.Logger) *gin.Engine {
+	gin.SetMode(gin.ReleaseMode)
 	g := gin.New()
 	g.Use(ginlogrus.Logger(log), gin.Recovery())
 	return g
