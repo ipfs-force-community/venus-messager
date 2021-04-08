@@ -71,6 +71,7 @@ func (r *RewriteJsonRpcToRestful) PreRequest(w http.ResponseWriter, req *http.Re
 }
 
 func InitRouter(log *logrus.Logger) *gin.Engine {
+	gin.SetMode(gin.ReleaseMode) //todo change mode in cmds
 	g := gin.New()
 	g.Use(ginlogrus.Logger(log), gin.Recovery())
 	return g
