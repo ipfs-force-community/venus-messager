@@ -140,6 +140,9 @@ var listCmd = &cli.Command{
 			Name:  "count",
 			Usage: "number of messages output",
 		},
+		FromFlag,
+		outputTypeFlag,
+		verboseFlag,
 		&cli.IntFlag{
 			Name: "state",
 			Usage: `filter by message state,
@@ -152,9 +155,6 @@ state:
   6:  NoWalletMsg
 `,
 		},
-		FromFlag,
-		outputTypeFlag,
-		verboseFlag,
 	},
 	Action: func(ctx *cli.Context) error {
 		client, closer, err := getAPI(ctx)
