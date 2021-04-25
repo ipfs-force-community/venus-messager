@@ -25,7 +25,7 @@ type IMessager interface {
 	ListMessage(ctx context.Context) ([]*types.Message, error)                                                                                     //perm:admin
 	ListMessageByAddress(ctx context.Context, addr address.Address) ([]*types.Message, error)                                                      //perm:admin
 	ListFailedMessage(ctx context.Context) ([]*types.Message, error)                                                                               //perm:admin
-	ListBlockedMessage(ctx context.Context, addr address.Address, d time.Duration) ([]*types.Message, error)                                       //perm:admin                                            //perm:admin
+	ListBlockedMessage(ctx context.Context, addr address.Address, d time.Duration) ([]*types.Message, error)                                       //perm:admin
 	UpdateMessageStateByCid(ctx context.Context, cid cid.Cid, state types.MessageState) (cid.Cid, error)                                           //perm:admin
 	UpdateMessageStateByID(ctx context.Context, id string, state types.MessageState) (string, error)                                               //perm:admin
 	UpdateAllFilledMessage(ctx context.Context) (int, error)                                                                                       //perm:admin
