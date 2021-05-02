@@ -216,10 +216,9 @@ func (walletService *WalletService) start() error {
 	}
 
 	// scan remote address
-	walletNames, clis := walletService.ListWalletClient()
-	for i, cli := range clis {
-		if err := walletService.ProcessWallet(context.TODO(), walletNames[i], cli); err != nil {
-			walletService.log.Errorf("process wallet failed %v %v", walletNames[i], err)
+	for walletName, cli := range walletService.ListWalletClient() {
+		if err := walletService.ProcessWallet(context.TODO(), walletName, cli); err != nil {
+			walletService.log.Errorf("process wallet failed %v %v", walletName, err)
 		}
 	}
 
@@ -242,11 +241,40 @@ func (walletService *WalletService) listenWalletChange(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			walletNames, clis := walletService.ListWalletClient()
-			for i, cli := range clis {
-				if err := walletService.ProcessWallet(ctx, walletNames[i], cli); err != nil {
-					walletService.log.Errorf("process wallet failed %v %v", walletNames[i], err)
+			walletList, err := walletService.ListWallet(ctx)
+			if err != nil {
+				walletService.log.Errorf("list wallet %v", err)
+				continue
+			}
+			var cli IWalletClient
+			walletClis := walletService.ListWalletClient()
+			for _, w := range walletList {
+				// maybe add a new wallet
+				if _, ok := walletClis[w.Name]; !ok {
+					cliT, _, err := newWalletClient(ctx, w.Url, w.Token)
+					if err != nil {
+						walletService.log.Errorf("new wallet client %v", err)
+						continue
+					}
+					cli = &cliT
+					walletService.addWallet(w.Name, &WalletInfo{
+						walletCli:    &cliT,
+						walletState:  types.Alive,
+						addressInfos: make(map[address.Address]*AddressInfo),
+					})
+					walletService.setWallets(w.Name, w.ID)
+				} else {
+					cli = walletClis[w.Name]
+					delete(walletClis, w.Name)
 				}
+				if err := walletService.ProcessWallet(ctx, w.Name, cli); err != nil {
+					walletService.log.Errorf("process wallet failed %v %v", w.Name, err)
+				}
+			}
+
+			// delete the corresponding wallet in the cache when db delete a wallet
+			for walletName := range walletClis {
+				walletService.deleteWallet(walletName)
 			}
 		case i := <-walletService.sps.GetParams().ScanIntervalChan:
 			ticker.Reset(i)
@@ -255,7 +283,6 @@ func (walletService *WalletService) listenWalletChange(ctx context.Context) {
 			return
 		}
 	}
-
 }
 
 func (walletService *WalletService) ProcessWallet(ctx context.Context, walletName string, cli IWalletClient) error {
@@ -302,7 +329,7 @@ func (walletService *WalletService) saveAddress(ctx context.Context, addr addres
 	var nonce uint64
 	actor, err := walletService.nodeClient.StateGetActor(context.Background(), addr, venustypes.EmptyTSK)
 	if err != nil {
-		walletService.log.Warnf("get actor failed, addr: %s, err: %v", addr, err)
+		walletService.log.Infof("get actor failed, addr: %s, err: %v", addr, err)
 	} else {
 		nonce = actor.Nonce //current nonce should big than nonce on chain
 	}
@@ -396,8 +423,8 @@ func (walletService *WalletService) checkWalletState() {
 
 		addrs := walletService.listOneWalletAddress(walletName)
 		if len(addrs) == 0 {
-			if err := walletService.repo.WalletRepo().DelWallet(walletName); err != nil {
-				walletService.log.Errorf("deleted wallet %v", err)
+			if err := walletService.repo.WalletRepo().DelWallet(walletName); err != nil && !xerrors.Is(err, gorm.ErrRecordNotFound) {
+				walletService.log.Errorf("deleted wallet(%s) %v", walletName, err)
 			} else {
 				walletService.removeWallet(walletName)
 				walletService.log.Infof("deleted wallet %s", walletName)
@@ -438,7 +465,7 @@ func (walletService *WalletService) checkAddressState() {
 			} else {
 				if err := walletService.repo.WalletAddressRepo().DelWalletAddress(walletService.getWalletID(target.walletName),
 					walletService.getAddressID(target.addr)); err != nil {
-					walletService.log.Errorf("update address state %v", err)
+					walletService.log.Errorf("delete wallet address %v", err)
 				}
 				walletService.removeAddressInfo(target.walletName, target.addr)
 				walletService.log.Infof("deleted address %v", target.addr.String())
@@ -543,20 +570,18 @@ func (walletService *WalletService) HasAddress(walletName string, addr address.A
 	return false
 }
 
-func (walletService *WalletService) ListWalletClient() ([]string, []IWalletClient) {
+func (walletService *WalletService) ListWalletClient() map[string]IWalletClient {
 	walletService.l.RLock()
 	defer walletService.l.RUnlock()
-	clis := make([]IWalletClient, 0, len(walletService.walletInfos))
-	walletNames := make([]string, 0, len(walletService.walletInfos))
+	clis := make(map[string]IWalletClient, len(walletService.walletInfos))
 	for walletName, info := range walletService.walletInfos {
 		if info.walletState != types.Alive {
 			continue
 		}
-		clis = append(clis, info.walletCli)
-		walletNames = append(walletNames, walletName)
+		clis[walletName] = info.walletCli
 	}
 
-	return walletNames, clis
+	return clis
 }
 
 func (walletService *WalletService) listOneWalletAddress(walletName string) map[address.Address]struct{} {
