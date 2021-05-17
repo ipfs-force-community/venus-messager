@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-state-types/big"
 )
 
 type Address struct {
@@ -13,7 +14,14 @@ type Address struct {
 	Nonce  uint64 `json:"nonce"`
 	Weight int64  `json:"weight"`
 
-	IsDeleted int       `json:"isDeleted"` // 是否删除 1:是  -1:否
-	CreatedAt time.Time `json:"createAt"`  // 创建时间
-	UpdatedAt time.Time `json:"updateAt"`  // 更新时间
+	GasOverEstimation float64 `json:"gasOverEstimation"`
+	MaxFee            big.Int `json:"maxFee,omitempty"`
+	MaxFeeCap         big.Int `json:"maxFeeCap"`
+
+	IsDeleted int       `json:"isDeleted"`
+	CreatedAt time.Time `json:"createAt"`
+	UpdatedAt time.Time `json:"updateAt"`
+}
+
+type FeeParams struct {
 }

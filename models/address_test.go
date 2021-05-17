@@ -6,10 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/filecoin-project/venus-messager/models/repo"
-	"github.com/google/uuid"
-
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/venus-messager/models/repo"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/filecoin-project/venus-messager/types"
@@ -26,12 +25,16 @@ func TestAddress(t *testing.T) {
 		assert.NoError(t, err)
 
 		addrInfo := &types.Address{
-			ID:        types.NewUUID(),
-			Addr:      addr,
-			Nonce:     3,
-			IsDeleted: -1,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			ID:                types.NewUUID(),
+			Addr:              addr,
+			Nonce:             3,
+			Weight:            100,
+			GasOverEstimation: 1.2,
+			MaxFee:            big.NewInt(10),
+			MaxFeeCap:         big.NewInt(20),
+			IsDeleted:         -1,
+			CreatedAt:         time.Now(),
+			UpdatedAt:         time.Now(),
 		}
 
 		addrInfo2 := &types.Address{
@@ -45,165 +48,69 @@ func TestAddress(t *testing.T) {
 
 		ctx := context.Background()
 
-		err = addressRepo.SaveAddress(ctx, addrInfo)
-		assert.NoError(t, err)
-		err = addressRepo.SaveAddress(ctx, addrInfo2)
-		assert.NoError(t, err)
+		t.Run("SaveAddress", func(t *testing.T) {
+			assert.NoError(t, addressRepo.SaveAddress(ctx, addrInfo))
+			assert.NoError(t, addressRepo.SaveAddress(ctx, addrInfo2))
+		})
 
-		r, err := addressRepo.GetAddress(ctx, addr)
-		assert.NoError(t, err)
-		assert.Equal(t, addrInfo.Nonce, r.Nonce)
+		checkField := func(t *testing.T, expect, actual *types.Address) {
+			assert.Equal(t, expect.Nonce, actual.Nonce)
+			assert.Equal(t, expect.Weight, actual.Weight)
+			assert.Equal(t, expect.GasOverEstimation, actual.GasOverEstimation)
+			assert.Equal(t, expect.MaxFee.NilOrZero(), actual.MaxFee.NilOrZero())
+			assert.Equal(t, expect.MaxFeeCap.NilOrZero(), actual.MaxFeeCap.NilOrZero())
+		}
 
-		newNonce := uint64(5)
-		err = addressRepo.UpdateNonce(ctx, addr, newNonce)
-		assert.NoError(t, err)
-		r2, err := addressRepo.GetAddress(ctx, addr)
-		assert.NoError(t, err)
-		assert.Equal(t, newNonce, r2.Nonce)
+		t.Run("GetAddress", func(t *testing.T) {
+			r, err := addressRepo.GetAddress(ctx, addr)
+			assert.NoError(t, err)
+			checkField(t, addrInfo, r)
+		})
 
-		err = addressRepo.DelAddress(ctx, addr)
-		assert.NoError(t, err)
+		t.Run("GetAddressByID", func(t *testing.T) {
+			r, err := addressRepo.GetAddressByID(ctx, addrInfo2.ID)
+			assert.NoError(t, err)
+			checkField(t, addrInfo2, r)
+		})
 
-		r, err = addressRepo.GetAddress(ctx, addr)
-		assert.Error(t, err)
-		assert.Nil(t, r)
+		t.Run("UpdateNonce", func(t *testing.T) {
+			newNonce := uint64(5)
+			assert.NoError(t, addressRepo.UpdateNonce(ctx, addr, newNonce))
+			r2, err := addressRepo.GetAddress(ctx, addr)
+			assert.NoError(t, err)
+			assert.Equal(t, newNonce, r2.Nonce)
+		})
 
-		rs, err := addressRepo.ListAddress(ctx)
-		assert.NoError(t, err)
-		assert.LessOrEqual(t, 1, len(rs))
+		t.Run("DelAddress", func(t *testing.T) {
+			assert.NoError(t, addressRepo.DelAddress(ctx, addr2))
+
+			r, err := addressRepo.GetAddress(ctx, addr2)
+			assert.Error(t, err)
+			assert.Nil(t, r)
+
+			r, err = addressRepo.GetOneRecord(ctx, addr2)
+			assert.NoError(t, err)
+			checkField(t, addrInfo2, r)
+		})
+
+		t.Run("HasAddress", func(t *testing.T) {
+			has, err := addressRepo.HasAddress(ctx, addr)
+			assert.NoError(t, err)
+			assert.True(t, has)
+
+			has, err = addressRepo.HasAddress(ctx, addr2)
+			assert.NoError(t, err)
+			assert.True(t, has)
+		})
+
+		t.Run("ListAddress", func(t *testing.T) {
+			rs, err := addressRepo.ListAddress(ctx)
+			assert.NoError(t, err)
+			assert.LessOrEqual(t, 1, len(rs))
+		})
 	}
 
 	t.Run("TestAddress", func(t *testing.T) {
-		t.Run("sqlite", func(t *testing.T) {
-			addressRepoTest(t, sqliteRepo.AddressRepo())
-		})
-		t.Run("mysql", func(t *testing.T) {
-			t.SkipNow()
-			addressRepoTest(t, mysqlRepo.AddressRepo())
-		})
-	})
-}
-
-func TestUpdateAddressNonce(t *testing.T) {
-	sqliteRepo, mysqlRepo := setupRepo(t)
-
-	addressRepoTest := func(t *testing.T, addressRepo repo.AddressRepo) {
-		uid, err := uuid.NewUUID()
-		assert.NoError(t, err)
-		addr, err := address.NewActorAddress(uid[:])
-		assert.NoError(t, err)
-
-		addrInfo := &types.Address{
-			ID:        types.NewUUID(),
-			Addr:      addr,
-			Nonce:     3,
-			IsDeleted: -1,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
-
-		err = addressRepo.SaveAddress(context.TODO(), addrInfo)
-		assert.NoError(t, err)
-
-		result, err := addressRepo.GetAddress(context.TODO(), addr)
-		assert.NoError(t, err)
-		assert.EqualValues(t, 3, result.Nonce)
-
-		err = addressRepo.UpdateNonce(context.TODO(), addr, 1000)
-		assert.NoError(t, err)
-
-		addrInfo, err = addressRepo.GetAddress(context.TODO(), addr)
-		assert.NoError(t, err)
-		assert.EqualValues(t, 1000, addrInfo.Nonce)
-	}
-
-	t.Run("UpdateAddressNonce", func(t *testing.T) {
-		t.Run("sqlite", func(t *testing.T) {
-			addressRepoTest(t, sqliteRepo.AddressRepo())
-		})
-		t.Run("mysql", func(t *testing.T) {
-			t.SkipNow()
-			addressRepoTest(t, mysqlRepo.AddressRepo())
-		})
-	})
-}
-
-func TestSqliteAddressRepo_Delete(t *testing.T) {
-	sqliteRepo, mysqlRepo := setupRepo(t)
-
-	addressRepoTest := func(t *testing.T, addressRepo repo.AddressRepo) {
-		id, err := uuid.NewUUID()
-		assert.NoError(t, err)
-		addr, err := address.NewActorAddress(id[:])
-		assert.NoError(t, err)
-		addrInfo := &types.Address{
-			ID:        types.NewUUID(),
-			Addr:      addr,
-			Nonce:     3,
-			IsDeleted: -1,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
-
-		err = addressRepo.SaveAddress(context.TODO(), addrInfo)
-		assert.NoError(t, err)
-
-		_, err = addressRepo.GetAddress(context.TODO(), addr)
-		assert.NoError(t, err)
-
-		err = addressRepo.DelAddress(context.TODO(), addr)
-		assert.NoError(t, err)
-
-		_, err = addressRepo.GetAddress(context.TODO(), addr)
-		assert.Error(t, err)
-		assert.Containsf(t, err.Error(), "record not found", "expect not found error")
-	}
-
-	t.Run("DeleteAddress", func(t *testing.T) {
-		t.Run("sqlite", func(t *testing.T) {
-			addressRepoTest(t, sqliteRepo.AddressRepo())
-		})
-		t.Run("mysql", func(t *testing.T) {
-			t.SkipNow()
-			addressRepoTest(t, mysqlRepo.AddressRepo())
-		})
-	})
-}
-
-func TestSqliteAddressRepo_HasAddress(t *testing.T) {
-	sqliteRepo, mysqlRepo := setupRepo(t)
-
-	addressRepoTest := func(t *testing.T, addressRepo repo.AddressRepo) {
-		uid, err := uuid.NewUUID()
-		assert.NoError(t, err)
-		addr, err := address.NewActorAddress(uid[:])
-		assert.NoError(t, err)
-
-		addrInfo := &types.Address{
-			ID:        types.NewUUID(),
-			Addr:      addr,
-			Nonce:     3,
-			IsDeleted: -1,
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		}
-
-		err = addressRepo.SaveAddress(context.TODO(), addrInfo)
-		assert.NoError(t, err)
-
-		has, err := addressRepo.HasAddress(context.TODO(), addr)
-		assert.NoError(t, err)
-		assert.Equal(t, has, true)
-
-		err = addressRepo.DelAddress(context.TODO(), addr)
-		assert.NoError(t, err)
-
-		_, err = addressRepo.GetAddress(context.TODO(), addr)
-		assert.Error(t, err)
-		assert.Containsf(t, err.Error(), "record not found", "expect not found error")
-	}
-
-	t.Run("HasAddress", func(t *testing.T) {
 		t.Run("sqlite", func(t *testing.T) {
 			addressRepoTest(t, sqliteRepo.AddressRepo())
 		})

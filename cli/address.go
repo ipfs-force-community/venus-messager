@@ -4,90 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/filecoin-project/venus-messager/models/repo"
-
 	"github.com/filecoin-project/go-address"
-
+	venusTypes "github.com/filecoin-project/venus/pkg/types"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/xerrors"
-
-	"github.com/filecoin-project/venus-messager/types"
 )
 
 var AddrCmds = &cli.Command{
 	Name:  "address",
 	Usage: "address commands",
 	Subcommands: []*cli.Command{
-		//setAddrCmd,
 		searchAddrCmd,
 		listAddrCmd,
-		//deleteAddrCmd,
 		updateNonceCmd,
-	},
-}
-
-// nolint
-var setAddrCmd = &cli.Command{
-	Name:  "set",
-	Usage: "set local address",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name: "uuid",
-		},
-		&cli.StringFlag{
-			Name:    "address",
-			Usage:   "address",
-			Aliases: []string{"a"},
-		},
-		&cli.Uint64Flag{
-			Name:  "nonce",
-			Usage: "address nonce",
-		},
-	},
-	Action: func(ctx *cli.Context) error {
-		client, closer, err := getAPI(ctx)
-		if err != nil {
-			return err
-		}
-		defer closer()
-		var addrInfo types.Address
-
-		if uuidStr := ctx.String("uuid"); len(uuidStr) > 0 {
-			uuid, err := types.ParseUUID(uuidStr)
-			if err != nil {
-				return err
-			}
-			addrInfo.ID = uuid
-		} else {
-			addrInfo.ID = types.NewUUID()
-		}
-
-		addrStr := ctx.String("address")
-		addr, err := address.NewFromString(addrStr)
-		if err != nil {
-			return err
-		}
-		addrInfo.Addr = addr
-		addrInfo.Nonce = ctx.Uint64("nonce")
-		if err != nil {
-			return err
-		}
-		addrInfo.IsDeleted = repo.NotDeleted
-
-		hasAddr, err := client.HasAddress(ctx.Context, addrInfo.Addr)
-		if err != nil {
-			return err
-		}
-		if hasAddr {
-			return xerrors.Errorf("address exist")
-		}
-
-		_, err = client.SaveAddress(ctx.Context, &addrInfo)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		setFeeParamsCmd,
 	},
 }
 
@@ -148,7 +78,7 @@ var listAddrCmd = &cli.Command{
 }
 
 var updateNonceCmd = &cli.Command{
-	Name:      "update_nonce",
+	Name:      "update-nonce",
 	Usage:     "update address nonce",
 	ArgsUsage: "address",
 	Flags: []cli.Flag{
@@ -203,6 +133,69 @@ var deleteAddrCmd = &cli.Command{
 			return err
 		}
 		_, err = client.DeleteAddress(ctx.Context, addr)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	},
+}
+
+var setFeeParamsCmd = &cli.Command{
+	Name:      "set-fee-params",
+	Usage:     "Address setting fee associated configuration",
+	ArgsUsage: "address",
+	Flags: []cli.Flag{
+		&cli.Float64Flag{
+			Name:  "gas-overestimation",
+			Usage: "Estimate the coefficient of gas",
+		},
+		&cli.StringFlag{
+			Name:  "max-feecap",
+			Usage: "Max feecap for a message (burn and pay to miner, attoFIL/GasUnit)",
+		},
+		&cli.StringFlag{
+			Name:  "max-fee",
+			Usage: "Spend up to X attoFIL for message",
+		},
+	},
+	Action: func(ctx *cli.Context) error {
+		client, closer, err := getAPI(ctx)
+		if err != nil {
+			return err
+		}
+		defer closer()
+
+		if !ctx.Args().Present() {
+			return xerrors.Errorf("must pass address")
+		}
+
+		addr, err := address.NewFromString(ctx.Args().First())
+		if err != nil {
+			return err
+		}
+		addrInfo, err := client.GetAddress(ctx.Context, addr)
+		if err != nil {
+			return err
+		}
+
+		if ctx.IsSet("gas-overestimation") {
+			addrInfo.GasOverEstimation = ctx.Float64("gas-overestimation")
+		}
+		if ctx.IsSet("max-fee") {
+			addrInfo.MaxFee, err = venusTypes.BigFromString(ctx.String("max-fee"))
+			if err != nil {
+				return xerrors.Errorf("parsing max-spend: %w", err)
+			}
+		}
+		if ctx.IsSet("max-feecap") {
+			addrInfo.MaxFeeCap, err = venusTypes.BigFromString(ctx.String("max-feecap"))
+			if err != nil {
+				return xerrors.Errorf("parsing max-feecap: %w", err)
+			}
+		}
+
+		_, err = client.SaveAddress(ctx.Context, addrInfo)
 		if err != nil {
 			return err
 		}

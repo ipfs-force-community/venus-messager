@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-state-types/big"
 	"gorm.io/gorm"
 
 	"github.com/filecoin-project/venus-messager/models/repo"
@@ -12,10 +13,13 @@ import (
 )
 
 type mysqlAddress struct {
-	ID     types.UUID `gorm:"column:id;type:varchar(256);primary_key"`
-	Addr   string     `gorm:"column:addr;type:varchar(256);NOT NULL"` // 主键
-	Nonce  uint64     `gorm:"column:nonce;type:bigint unsigned;index;NOT NULL"`
-	Weight int64      `gorm:"column:weight;type:bigint;index;NOT NULL"`
+	ID                types.UUID `gorm:"column:id;type:varchar(256);primary_key"`
+	Addr              string     `gorm:"column:addr;type:varchar(256);NOT NULL"` // 主键
+	Nonce             uint64     `gorm:"column:nonce;type:bigint unsigned;index;NOT NULL"`
+	Weight            int64      `gorm:"column:weight;type:bigint;index;NOT NULL"`
+	GasOverEstimation float64    `gorm:"column:gas_over_estimation;type:decimal(10,2);"`
+	MaxFee            types.Int  `gorm:"column:max_fee;type:varchar(256);"`
+	MaxFeeCap         types.Int  `gorm:"column:max_fee_cap;type:varchar(256);"`
 
 	IsDeleted int       `gorm:"column:is_deleted;index;default:-1;NOT NULL"` // 是否删除 1:是  -1:否
 	CreatedAt time.Time `gorm:"column:created_at;index;NOT NULL"`            // 创建时间
@@ -27,7 +31,7 @@ func (s mysqlAddress) TableName() string {
 }
 
 func FromAddress(addr *types.Address) *mysqlAddress {
-	return &mysqlAddress{
+	sqliteAddr := &mysqlAddress{
 		ID:        addr.ID,
 		Addr:      addr.Addr.String(),
 		Nonce:     addr.Nonce,
@@ -36,6 +40,14 @@ func FromAddress(addr *types.Address) *mysqlAddress {
 		CreatedAt: addr.CreatedAt,
 		UpdatedAt: addr.UpdatedAt,
 	}
+	if !addr.MaxFee.Nil() {
+		sqliteAddr.MaxFee = types.NewFromGo(addr.MaxFee.Int)
+	}
+	if !addr.MaxFeeCap.Nil() {
+		sqliteAddr.MaxFeeCap = types.NewFromGo(addr.MaxFeeCap.Int)
+	}
+
+	return sqliteAddr
 }
 
 func (s mysqlAddress) Address() (*types.Address, error) {
@@ -44,13 +56,16 @@ func (s mysqlAddress) Address() (*types.Address, error) {
 		return nil, err
 	}
 	return &types.Address{
-		ID:        s.ID,
-		Addr:      addr,
-		Nonce:     s.Nonce,
-		Weight:    s.Weight,
-		IsDeleted: s.IsDeleted,
-		CreatedAt: s.CreatedAt,
-		UpdatedAt: s.UpdatedAt,
+		ID:                s.ID,
+		Addr:              addr,
+		Nonce:             s.Nonce,
+		Weight:            s.Weight,
+		GasOverEstimation: s.GasOverEstimation,
+		MaxFee:            big.Int{Int: s.MaxFee.Int},
+		MaxFeeCap:         big.Int{Int: s.MaxFeeCap.Int},
+		IsDeleted:         s.IsDeleted,
+		CreatedAt:         s.CreatedAt,
+		UpdatedAt:         s.UpdatedAt,
 	}, nil
 }
 
