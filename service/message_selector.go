@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"modernc.org/mathutil"
 	"sort"
 	"strings"
 	"sync"
@@ -206,9 +207,15 @@ func (messageSelector *MessageSelector) selectAddrMessage(ctx context.Context, a
 			ToPushMsg: toPushMessage,
 		}, nil
 	}
-	selectCount := maxAllowPendingMessage - nonceGap
-	messageSelector.log.Infof("address %s pre state actor nonce %d, latest nonce %d, assigned nonce %d, nonce gap %d, want %d", addr.Addr, actor.Nonce, nonceInLatestTs, addr.Nonce, nonceGap, selectCount)
-
+	wantCount := maxAllowPendingMessage - nonceGap
+	messageSelector.log.Infof("address %s pre state actor nonce %d, latest nonce %d, assigned nonce %d, nonce gap %d, want %d", addr.Addr, actor.Nonce, nonceInLatestTs, addr.Nonce, nonceGap, wantCount)
+	var allowFailedNum uint64
+	if messageSelector.sps.GetParams().SharedParams != nil {
+		allowFailedNum = messageSelector.sps.GetParams().MaxEstFailNumOfMsg
+	}
+	//select message number from db
+	//max to 100, min to double wantcount
+	selectCount := mathutil.MinUint64(mathutil.MaxUint64(wantCount, allowFailedNum)*2, 100)
 	//消息排序
 	messages, err := messageSelector.repo.MessageRepo().ListUnChainMessageByAddress(addr.Addr, int(selectCount))
 	if err != nil {
@@ -232,13 +239,10 @@ func (messageSelector *MessageSelector) selectAddrMessage(ctx context.Context, a
 	var count = uint64(0)
 	var selectMsg []*types.Message
 	var failedCount uint64
-	var allowFailedNum uint64
 	var msgsErrInfo []msgErrInfo
-	if messageSelector.sps.GetParams().SharedParams != nil {
-		allowFailedNum = messageSelector.sps.GetParams().MaxEstFailNumOfMsg
-	}
+
 	for _, msg := range messages {
-		if count >= selectCount {
+		if count >= wantCount {
 			break
 		}
 		if failedCount >= allowFailedNum {
