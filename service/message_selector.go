@@ -232,7 +232,7 @@ func (messageSelector *MessageSelector) selectAddrMessage(ctx context.Context, a
 	for index, msg := range messages {
 		//if error print error message
 		if len(estimateResult[index].Err) != 0 {
-			errMsg = append(errMsg, msgErrInfo{id: msg.ID, err: gasEstimate + err.Error()})
+			errMsg = append(errMsg, msgErrInfo{id: msg.ID, err: gasEstimate + estimateResult[index].Err})
 			messageSelector.log.Errorf("estimate message %s fail %s", msg.ID, estimateResult[index].Err)
 			continue
 		}
