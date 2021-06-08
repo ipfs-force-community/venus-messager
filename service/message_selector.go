@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"github.com/filecoin-project/go-jsonrpc"
 	"modernc.org/mathutil"
 	"sort"
@@ -237,6 +238,10 @@ func (messageSelector *MessageSelector) selectAddrMessage(ctx context.Context, a
 
 	estimateMesssages := make([]*EstimateMessage, len(messages))
 	for index, msg := range messages {
+		if msg.Method == 5 {
+			fmt.Println("xxxxxxxxx from db gas fee cap ", msg.GasFeeCap)
+		}
+
 		// global msg meta
 		newMsgMeta := messageSelector.messageMeta(msg.Meta)
 		estimateMesssages[index] = &EstimateMessage{

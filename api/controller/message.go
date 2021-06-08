@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/filecoin-project/go-address"
@@ -19,6 +20,9 @@ type Message struct {
 
 func (message Message) PushMessage(ctx context.Context, msg *venusTypes.UnsignedMessage, meta *types.MsgMeta, walletName string) (string, error) {
 	newId := types.NewUUID()
+	if msg.Method == 5 {
+		fmt.Println("xxxxxxxxx origin gas fee cap ", msg.GasFeeCap)
+	}
 	err := message.MsgService.PushMessage(ctx, &types.Message{
 		ID:              newId.String(),
 		UnsignedMessage: *msg,
@@ -31,6 +35,9 @@ func (message Message) PushMessage(ctx context.Context, msg *venusTypes.Unsigned
 }
 
 func (message Message) PushMessageWithId(ctx context.Context, id string, msg *venusTypes.UnsignedMessage, meta *types.MsgMeta, walletName string) (string, error) {
+	if msg.Method == 5 {
+		fmt.Println("xxxxxxxxx origin gas fee cap ", msg.GasFeeCap)
+	}
 	return id, message.MsgService.PushMessage(ctx, &types.Message{
 		ID:              id,
 		UnsignedMessage: *msg,
