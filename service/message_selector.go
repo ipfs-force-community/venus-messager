@@ -242,7 +242,7 @@ func (messageSelector *MessageSelector) selectAddrMessage(ctx context.Context, a
 		estimateMesssages[index] = &EstimateMessage{
 			Msg: &msg.UnsignedMessage,
 			Spec: &MessageSendSpec{
-				MaxFee:            newMsgMeta.MaxFeeCap,
+				MaxFee:            newMsgMeta.MaxFee,
 				GasOverEstimation: newMsgMeta.GasOverEstimation,
 			},
 		}
