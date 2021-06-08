@@ -246,7 +246,7 @@ func (messageSelector *MessageSelector) selectAddrMessage(ctx context.Context, a
 				GasOverEstimation: newMsgMeta.GasOverEstimation,
 			},
 		}
-		messageSelector.log.Debugf("estimate message %s meta maxfee %s, max fee cap %s, over estimation %f", msg.ID, newMsgMeta.MaxFee, newMsgMeta.MaxFeeCap, newMsgMeta.GasOverEstimation)
+		messageSelector.log.Infof("estimate message %s meta maxfee %s, max fee cap %s, over estimation %f", msg.ID, newMsgMeta.MaxFee, newMsgMeta.MaxFeeCap, newMsgMeta.GasOverEstimation)
 	}
 
 	timeOutCtx, cancel := context.WithTimeout(ctx, time.Second*5)

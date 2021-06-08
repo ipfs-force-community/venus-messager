@@ -10,8 +10,8 @@ type SharedParams struct {
 
 	ExpireEpoch       abi.ChainEpoch `json:"expireEpoch"`
 	GasOverEstimation float64        `json:"gasOverEstimation"`
-	MaxFee            int64          `json:"maxFee,omitempty"`
-	MaxFeeCap         int64          `json:"maxFeeCap"`
+	MaxFee            big.Int        `json:"maxFee,omitempty"`
+	MaxFeeCap         big.Int        `json:"maxFeeCap"`
 
 	SelMsgNum uint64 `json:"selMsgNum"`
 
@@ -27,7 +27,7 @@ func (sp *SharedParams) GetMsgMeta() *MsgMeta {
 	return &MsgMeta{
 		ExpireEpoch:       sp.ExpireEpoch,
 		GasOverEstimation: sp.GasOverEstimation,
-		MaxFee:            big.NewInt(sp.MaxFee),
-		MaxFeeCap:         big.NewInt(sp.MaxFeeCap),
+		MaxFee:            sp.MaxFee,
+		MaxFeeCap:         sp.MaxFeeCap,
 	}
 }

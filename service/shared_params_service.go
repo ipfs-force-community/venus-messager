@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/filecoin-project/go-state-types/big"
 	venusTypes "github.com/filecoin-project/venus/pkg/types"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/xerrors"
@@ -22,8 +23,8 @@ var defParams = &types.SharedParams{
 	ID:                 0,
 	ExpireEpoch:        0,
 	GasOverEstimation:  1.25,
-	MaxFee:             DefaultMaxFee.Int64(),
-	MaxFeeCap:          0,
+	MaxFee:             big.Int{DefaultMaxFee.Int},
+	MaxFeeCap:          big.NewInt(0),
 	SelMsgNum:          20,
 	ScanInterval:       10,
 	MaxEstFailNumOfMsg: 5,

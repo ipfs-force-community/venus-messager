@@ -2,10 +2,9 @@ package sqlite
 
 import (
 	"context"
+	"github.com/filecoin-project/go-state-types/big"
 
 	"gorm.io/gorm"
-
-	"github.com/hunjixin/automapper"
 
 	"github.com/filecoin-project/go-state-types/abi"
 
@@ -18,8 +17,8 @@ type sqliteSharedParams struct {
 
 	ExpireEpoch       abi.ChainEpoch `gorm:"column:expire_epoch;type:INT;NOT NULL"`
 	GasOverEstimation float64        `gorm:"column:gas_over_estimation;type:REAL;NOT NULL"`
-	MaxFee            int64          `gorm:"column:max_fee;type:UNSIGNED BIG INT;NOT NULL"`
-	MaxFeeCap         int64          `gorm:"column:max_fee_cap;type:UNSIGNED BIG INT;NOT NULL"`
+	MaxFee            types.Int      `gorm:"column:max_fee;type:varchar(256);NOT NULL"`
+	MaxFeeCap         types.Int      `gorm:"column:max_fee_cap;type:varchar(256);NOT NULL"`
 
 	SelMsgNum uint64 `gorm:"column:sel_msg_num;type:UNSIGNED BIG INT;NOT NULL"`
 
@@ -29,11 +28,29 @@ type sqliteSharedParams struct {
 }
 
 func FromSharedParams(sp types.SharedParams) *sqliteSharedParams {
-	return automapper.MustMapper(&sp, TSqliteSharedParams).(*sqliteSharedParams)
+	return &sqliteSharedParams{
+		ID:                 sp.ID,
+		ExpireEpoch:        sp.ExpireEpoch,
+		GasOverEstimation:  sp.GasOverEstimation,
+		MaxFee:             types.Int{sp.MaxFee.Int},
+		MaxFeeCap:          types.Int{sp.MaxFeeCap.Int},
+		SelMsgNum:          sp.SelMsgNum,
+		ScanInterval:       sp.ScanInterval,
+		MaxEstFailNumOfMsg: sp.MaxEstFailNumOfMsg,
+	}
 }
 
 func (ssp sqliteSharedParams) SharedParams() *types.SharedParams {
-	return automapper.MustMapper(&ssp, TSharedParams).(*types.SharedParams)
+	return &types.SharedParams{
+		ID:                 ssp.ID,
+		ExpireEpoch:        ssp.ExpireEpoch,
+		GasOverEstimation:  ssp.GasOverEstimation,
+		MaxFee:             big.NewFromGo(ssp.MaxFee.Int),
+		MaxFeeCap:          big.NewFromGo(ssp.MaxFeeCap.Int),
+		SelMsgNum:          ssp.SelMsgNum,
+		ScanInterval:       ssp.ScanInterval,
+		MaxEstFailNumOfMsg: ssp.MaxEstFailNumOfMsg,
+	}
 }
 
 func (ssp sqliteSharedParams) TableName() string {
@@ -75,8 +92,8 @@ func (s sqliteSharedParamsRepo) SetSharedParams(ctx context.Context, params *typ
 
 	ssp.ExpireEpoch = params.ExpireEpoch
 	ssp.GasOverEstimation = params.GasOverEstimation
-	ssp.MaxFeeCap = params.MaxFeeCap
-	ssp.MaxFee = params.MaxFee
+	ssp.MaxFeeCap = types.Int{params.MaxFeeCap.Int}
+	ssp.MaxFee = types.Int{params.MaxFee.Int}
 
 	ssp.SelMsgNum = params.SelMsgNum
 

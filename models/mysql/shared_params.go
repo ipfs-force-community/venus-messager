@@ -2,10 +2,9 @@ package mysql
 
 import (
 	"context"
+	"github.com/filecoin-project/go-state-types/big"
 
 	"gorm.io/gorm"
-
-	"github.com/hunjixin/automapper"
 
 	"github.com/filecoin-project/go-state-types/abi"
 
@@ -18,10 +17,9 @@ type mysqlSharedParams struct {
 
 	ExpireEpoch       abi.ChainEpoch `gorm:"column:expire_epoch;type:BIGINT(20);NOT NULL"`
 	GasOverEstimation float64        `gorm:"column:gas_over_estimation;type:DOUBLE;NOT NULL"`
-	MaxFee            int64          `gorm:"column:max_fee;type:BIGINT(20);NOT NULL"`
-	MaxFeeCap         int64          `gorm:"column:max_fee_cap;type:BIGINT(20);NOT NULL"`
-
-	SelMsgNum uint64 `gorm:"column:sel_msg_num;type:BIGINT(20) UNSIGNED;NOT NULL"`
+	MaxFee            types.Int      `gorm:"column:max_fee;type:varchar(256);NOT NULL"`
+	MaxFeeCap         types.Int      `gorm:"column:max_fee_cap;type:varchar(256);NOT NULL"`
+	SelMsgNum         uint64         `gorm:"column:sel_msg_num;type:BIGINT(20) UNSIGNED;NOT NULL"`
 
 	ScanInterval int `gorm:"column:scan_interval;NOT NULL"`
 
@@ -29,11 +27,29 @@ type mysqlSharedParams struct {
 }
 
 func FromSharedParams(sp types.SharedParams) *mysqlSharedParams {
-	return automapper.MustMapper(&sp, TMysqlSharedParams).(*mysqlSharedParams)
+	return &mysqlSharedParams{
+		ID:                 sp.ID,
+		ExpireEpoch:        sp.ExpireEpoch,
+		GasOverEstimation:  sp.GasOverEstimation,
+		MaxFee:             types.Int{sp.MaxFee.Int},
+		MaxFeeCap:          types.Int{sp.MaxFeeCap.Int},
+		SelMsgNum:          sp.SelMsgNum,
+		ScanInterval:       sp.ScanInterval,
+		MaxEstFailNumOfMsg: sp.MaxEstFailNumOfMsg,
+	}
 }
 
 func (ssp mysqlSharedParams) SharedParams() *types.SharedParams {
-	return automapper.MustMapper(&ssp, TSharedParams).(*types.SharedParams)
+	return &types.SharedParams{
+		ID:                 ssp.ID,
+		ExpireEpoch:        ssp.ExpireEpoch,
+		GasOverEstimation:  ssp.GasOverEstimation,
+		MaxFee:             big.NewFromGo(ssp.MaxFee.Int),
+		MaxFeeCap:          big.NewFromGo(ssp.MaxFeeCap.Int),
+		SelMsgNum:          ssp.SelMsgNum,
+		ScanInterval:       ssp.ScanInterval,
+		MaxEstFailNumOfMsg: ssp.MaxEstFailNumOfMsg,
+	}
 }
 
 func (ssp mysqlSharedParams) TableName() string {
@@ -75,8 +91,8 @@ func (s mysqlSharedParamsRepo) SetSharedParams(ctx context.Context, params *type
 
 	ssp.ExpireEpoch = params.ExpireEpoch
 	ssp.GasOverEstimation = params.GasOverEstimation
-	ssp.MaxFeeCap = params.MaxFeeCap
-	ssp.MaxFee = params.MaxFee
+	ssp.MaxFeeCap = types.Int{params.MaxFeeCap.Int}
+	ssp.MaxFee = types.Int{params.MaxFee.Int}
 
 	ssp.SelMsgNum = params.SelMsgNum
 
