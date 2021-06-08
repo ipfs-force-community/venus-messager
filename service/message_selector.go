@@ -2,13 +2,13 @@ package service
 
 import (
 	"context"
+	"github.com/filecoin-project/go-jsonrpc"
+	"modernc.org/mathutil"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/go-jsonrpc"
 	"github.com/filecoin-project/venus-wallet/core"
 
 	"github.com/filecoin-project/go-state-types/abi"
@@ -172,6 +172,7 @@ func (messageSelector *MessageSelector) selectAddrMessage(ctx context.Context, a
 	actor := actorI.(*venusTypes.Actor)
 	nonceInLatestTs := actor.Nonce
 	if nonceInTs, ok := appliedNonce.Get(addr.Addr); ok {
+		messageSelector.log.Infof("update address %s nonce in ts %d  nonce in actor %d", addr.Addr, nonceInTs, nonceInLatestTs)
 		nonceInLatestTs = nonceInTs
 	}
 	if nonceInLatestTs > addr.Nonce {
@@ -206,15 +207,16 @@ func (messageSelector *MessageSelector) selectAddrMessage(ctx context.Context, a
 			ToPushMsg: toPushMessage,
 		}, nil
 	}
-	selectCount := maxAllowPendingMessage - nonceGap
-	messageSelector.log.Infof("address %s pre state actor nonce %d, latest nonce %d, assigned nonce %d, nonce gap %d, want %d", addr.Addr, actor.Nonce, nonceInLatestTs, addr.Nonce, nonceGap, selectCount)
-
-	//消息排序
+	wantCount := maxAllowPendingMessage - nonceGap
+	messageSelector.log.Infof("address %s pre state actor nonce %d, latest nonce %d, assigned nonce %d, nonce gap %d, want %d", addr.Addr, actor.Nonce, nonceInLatestTs, addr.Nonce, nonceGap, wantCount)
+	//get message
+	selectCount := mathutil.MinUint64(wantCount*2, 100)
 	messages, err := messageSelector.repo.MessageRepo().ListUnChainMessageByAddress(addr.Addr, int(selectCount))
 	if err != nil {
 		return nil, xerrors.Errorf("list %s unpackage message error %v", addr.Addr, err)
 	}
 
+	//exclude expire message
 	messages, expireMsgs := messageSelector.excludeExpire(ts, messages)
 	sort.Slice(messages, func(i, j int) bool {
 		return messages[i].Meta.ExpireEpoch < messages[j].Meta.ExpireEpoch
@@ -231,18 +233,39 @@ func (messageSelector *MessageSelector) selectAddrMessage(ctx context.Context, a
 
 	var count = uint64(0)
 	var selectMsg []*types.Message
-	var failedCount uint64
-	var allowFailedNum uint64
 	var msgsErrInfo []msgErrInfo
-	if messageSelector.sps.GetParams().SharedParams != nil {
-		allowFailedNum = messageSelector.sps.GetParams().MaxEstFailNumOfMsg
-	}
-	for _, msg := range messages {
-		if count >= selectCount {
-			break
+
+	estimateMesssages := make([]*EstimateMessage, len(messages))
+	for index, msg := range messages {
+		// global msg meta
+		newMsgMeta := messageSelector.messageMeta(msg.Meta)
+		estimateMesssages[index] = &EstimateMessage{
+			Msg: &msg.UnsignedMessage,
+			Spec: &MessageSendSpec{
+				MaxFee:            newMsgMeta.MaxFeeCap,
+				GasOverEstimation: newMsgMeta.GasOverEstimation,
+			},
 		}
-		if failedCount >= allowFailedNum {
-			messageSelector.log.Warnf("the maximum number of failures has been reached %d", allowFailedNum)
+		messageSelector.log.Debugf("estimate message %s meta maxfee %s, max fee cap %s, over estimation %f", msg.ID, newMsgMeta.MaxFee, newMsgMeta.MaxFeeCap, newMsgMeta.GasOverEstimation)
+	}
+
+	timeOutCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	estimateResult, err := messageSelector.nodeClient.GasBatchEstimateMessageGas(timeOutCtx, estimateMesssages, addr.Nonce, ts.Key())
+	cancel()
+	if err != nil {
+
+		return nil, err
+	}
+	// sign
+	for index, msg := range messages {
+		//if error print error message
+		if len(estimateResult[index].Err) != 0 {
+			msgsErrInfo = append(msgsErrInfo, msgErrInfo{id: msg.ID, err: gasEstimate + estimateResult[index].Err})
+			messageSelector.log.Errorf("estimate message %s fail %s", msg.ID, estimateResult[index].Err)
+			continue
+		}
+		estimateMsg := estimateResult[index].Msg
+		if count >= wantCount {
 			break
 		}
 		addrInfo, ok := messageSelector.getAddrInfo(msg.WalletName, msg.From)
@@ -257,30 +280,9 @@ func (messageSelector *MessageSelector) selectAddrMessage(ctx context.Context, a
 
 		//分配nonce
 		msg.Nonce = addr.Nonce
-
-		// global msg meta
-		newMsgMeta := messageSelector.messageMeta(msg.Meta)
-
-		//todo 估算gas, spec怎么做？
-		//通过配置影响 maxfee
-		timeOutCtx, cancel := context.WithTimeout(ctx, time.Second)
-		newMsg, err := messageSelector.GasEstimateMessageGas(timeOutCtx, msg.VMMessage(), newMsgMeta, ts.Key())
-		cancel()
-		if err != nil {
-			failedCount++
-			msgsErrInfo = append(msgsErrInfo, msgErrInfo{id: msg.ID, err: gasEstimate + err.Error()})
-			if strings.Contains(err.Error(), "exit SysErrSenderStateInvalid(2)") {
-				// SysErrSenderStateInvalid(2))
-				messageSelector.log.Errorf("message %s estimate message fail %v break address %s", msg.ID, err, addr.Addr)
-				break
-			}
-			messageSelector.log.Errorf("message %s estimate message fail %v, try to next message", msg.ID, err)
-			continue
-		}
-		messageSelector.log.Info("estimate message %s meta maxfee %s, max fee cap %s, over estimation %s", msg.ID, newMsgMeta.MaxFee.String(), newMsgMeta.MaxFeeCap, newMsgMeta.GasOverEstimation)
-		msg.GasFeeCap = newMsg.GasFeeCap
-		msg.GasPremium = newMsg.GasPremium
-		msg.GasLimit = newMsg.GasLimit
+		msg.GasFeeCap = estimateMsg.GasFeeCap
+		msg.GasPremium = estimateMsg.GasPremium
+		msg.GasLimit = estimateMsg.GasLimit
 
 		unsignedCid := msg.UnsignedMessage.Cid()
 		msg.UnsignedCid = &unsignedCid
@@ -352,9 +354,6 @@ func (messageSelector *MessageSelector) messageMeta(meta *types.MsgMeta) *types.
 	newMsgMeta := &types.MsgMeta{}
 	*newMsgMeta = *meta
 	globalMeta := messageSelector.sps.GetParams().GetMsgMeta()
-	if globalMeta == nil {
-		return newMsgMeta
-	}
 
 	if meta.GasOverEstimation == 0 {
 		newMsgMeta.GasOverEstimation = globalMeta.GasOverEstimation

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-jsonrpc"
+	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/go-state-types/big"
 	"github.com/filecoin-project/venus-messager/config"
 	chain2 "github.com/filecoin-project/venus/app/submodule/chain"
@@ -16,6 +17,20 @@ import (
 	"net/url"
 )
 
+type EstimateMessage struct {
+	Msg  *types.Message
+	Spec *MessageSendSpec
+}
+
+type EstimateResult struct {
+	Msg *types.Message
+	Err string
+}
+
+type MessageSendSpec struct {
+	MaxFee            abi.TokenAmount
+	GasOverEstimation float64
+}
 type NodeClient struct {
 	ChainNotify            func(context.Context) (<-chan []*chain.HeadChange, error)
 	ChainHead              func(context.Context) (*types.TipSet, error)
@@ -28,11 +43,11 @@ type NodeClient struct {
 	StateSearchMsg         func(context.Context, cid.Cid) (*chain.MsgLookup, error)
 	StateGetActor          func(context.Context, address.Address, types.TipSetKey) (*types.Actor, error)
 
-	GasEstimateMessageGas func(context.Context, *types.UnsignedMessage, *types.MessageSendSpec, types.TipSetKey) (*types.UnsignedMessage, error)
-	GasEstimateFeeCap     func(context.Context, *types.UnsignedMessage, int64, types.TipSetKey) (big.Int, error)
-	GasEstimateGasPremium func(context.Context, uint64, address.Address, int64, types.TipSetKey) (big.Int, error)
-	GasEstimateGasLimit   func(ctx context.Context, msgIn *types.UnsignedMessage, tsk types.TipSetKey) (int64, error)
-	//	BatchGasEstimateMessageGas func(ctx context.Context, estimateMessages []*types.EstimateMessage, tsk types.TipSetKey) ([]*types.UnsignedMessage, error)
+	GasEstimateMessageGas      func(context.Context, *types.UnsignedMessage, *types.MessageSendSpec, types.TipSetKey) (*types.UnsignedMessage, error)
+	GasEstimateFeeCap          func(context.Context, *types.UnsignedMessage, int64, types.TipSetKey) (big.Int, error)
+	GasEstimateGasPremium      func(context.Context, uint64, address.Address, int64, types.TipSetKey) (big.Int, error)
+	GasEstimateGasLimit        func(ctx context.Context, msgIn *types.UnsignedMessage, tsk types.TipSetKey) (int64, error)
+	GasBatchEstimateMessageGas func(ctx context.Context, estimateMessages []*EstimateMessage, fromNonce uint64, tsk types.TipSetKey) ([]*EstimateResult, error)
 
 	MpoolPush      func(context.Context, *types.SignedMessage) (cid.Cid, error)
 	MpoolBatchPush func(context.Context, []*types.SignedMessage) ([]cid.Cid, error)
