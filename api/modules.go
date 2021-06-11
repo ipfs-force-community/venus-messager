@@ -67,7 +67,7 @@ func (r *RewriteJsonRpcToRestful) PreRequest(w http.ResponseWriter, req *http.Re
 		newReq := req.WithContext(ctx)
 		*req = *newReq
 	}
-	return 0, nil
+	return 0, xerrors.Errorf("unsupported request, method: %v, url: %v", req.Method, req.URL.Path)
 }
 
 func InitRouter(logger *logrus.Logger) *gin.Engine {
@@ -89,7 +89,7 @@ func RunAPI(lc fx.Lifecycle, r *gin.Engine, jwtClient jwt.IJwtClient, lst net.Li
 		code, err := rewriteJsonRpc.PreRequest(writer, request)
 		if err != nil {
 			writer.WriteHeader(code)
-			log.Errorf("cannot transfser jsonrpc to rustful")
+			log.Errorf("cannot transfser jsonrpc to rustful %v", err)
 			return
 		}
 
