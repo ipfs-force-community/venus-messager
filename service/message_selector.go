@@ -79,6 +79,13 @@ func (messageSelector *MessageSelector) SelectMessage(ctx context.Context, ts *v
 	if err != nil {
 		return nil, err
 	}
+	return &MsgSelectResult{
+		SelectMsg:     make([]*types.Message, 0, 0),
+		ExpireMsg:     make([]*types.Message, 0, 0),
+		ToPushMsg:     make([]*venusTypes.SignedMessage, 0, 0),
+		ModifyAddress: make([]*types.Address, 0, 0),
+		ErrMsg:        make([]msgErrInfo, 0, 0),
+	}, nil
 	//sort by addr weight
 	sort.Slice(addrList, func(i, j int) bool {
 		return addrList[i].Weight < addrList[j].Weight
@@ -338,21 +345,38 @@ func (messageSelector *MessageSelector) messageMeta(meta *types.MsgMeta, addrInf
 	return newMsgMeta
 }
 
+const UpgradeHyperdriveHeight = -1
+
 func (messageSelector *MessageSelector) getNonceInTipset(ctx context.Context, ts *venusTypes.TipSet) (*types.NonceMap, error) {
+	var sender address.Address
+	var err error
+	count := 0
 	applied := types.NewNonceMap()
+	now := time.Now()
 	//todo change with venus/lotus message for tipset
 	selectMsg := func(m *venusTypes.Message) error {
+		if ts.Height() >= UpgradeHyperdriveHeight {
+			now1 := time.Now()
+			sender, err = messageSelector.nodeClient.StateLookupID(ctx, m.From, ts.Key())
+			messageSelector.log.Warnf("StateLookupID %d 'ms'", time.Since(now1).Milliseconds())
+			if err != nil {
+				return err
+			}
+		} else {
+			sender = m.From
+		}
 		// The first match for a sender is guaranteed to have correct nonce -- the block isn't valid otherwise
-		if _, ok := applied.Get(m.From); !ok {
-			applied.Add(m.From, m.Nonce)
+		if _, ok := applied.Get(sender); !ok {
+			applied.Add(sender, m.Nonce)
 		}
 
-		val, _ := applied.Get(m.From)
+		val, _ := applied.Get(sender)
 		if val != m.Nonce {
 			return nil
 		}
 		val++
-		applied.Add(m.From, val)
+		count++
+		applied.Add(sender, val)
 		return nil
 	}
 
@@ -377,6 +401,7 @@ func (messageSelector *MessageSelector) getNonceInTipset(ctx context.Context, ts
 			}
 		}
 	}
+	messageSelector.log.Errorf("select msg spent: %d 'ms', count: %v", time.Since(now).Milliseconds(), count)
 
 	return applied, nil
 }

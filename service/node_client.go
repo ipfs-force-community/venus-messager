@@ -37,6 +37,7 @@ type NodeClient struct {
 	StateAccountKey        func(ctx context.Context, addr address.Address, tsk types.TipSetKey) (address.Address, error)
 	StateSearchMsg         func(context.Context, cid.Cid) (*chain.MsgLookup, error)
 	StateGetActor          func(context.Context, address.Address, types.TipSetKey) (*types.Actor, error)
+	StateLookupID          func(ctx context.Context, addr address.Address, tsk types.TipSetKey) (address.Address, error)
 
 	GasEstimateMessageGas      func(context.Context, *types.UnsignedMessage, *types.MessageSendSpec, types.TipSetKey) (*types.UnsignedMessage, error)
 	GasEstimateFeeCap          func(context.Context, *types.UnsignedMessage, int64, types.TipSetKey) (big.Int, error)
