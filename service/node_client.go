@@ -27,16 +27,18 @@ type EstimateResult struct {
 }
 
 type NodeClient struct {
-	ChainNotify            func(context.Context) (<-chan []*chain.HeadChange, error)
-	ChainHead              func(context.Context) (*types.TipSet, error)
-	ChainGetTipSet         func(context.Context, types.TipSetKey) (*types.TipSet, error)
-	ChainGetBlock          func(context.Context, cid.Cid) (*types.BlockHeader, error)
-	ChainGetBlockMessages  func(context.Context, cid.Cid) (*apitypes.BlockMessages, error)
-	ChainGetParentMessages func(ctx context.Context, bcid cid.Cid) ([]apitypes.Message, error)
-	ChainGetParentReceipts func(context.Context, cid.Cid) ([]*types.MessageReceipt, error)
-	StateAccountKey        func(ctx context.Context, addr address.Address, tsk types.TipSetKey) (address.Address, error)
-	StateSearchMsg         func(context.Context, cid.Cid) (*chain.MsgLookup, error)
-	StateGetActor          func(context.Context, address.Address, types.TipSetKey) (*types.Actor, error)
+	ChainNotify              func(context.Context) (<-chan []*chain.HeadChange, error)
+	ChainHead                func(context.Context) (*types.TipSet, error)
+	ChainGetTipSet           func(context.Context, types.TipSetKey) (*types.TipSet, error)
+	ChainGetBlock            func(context.Context, cid.Cid) (*types.BlockHeader, error)
+	ChainGetBlockMessages    func(context.Context, cid.Cid) (*apitypes.BlockMessages, error)
+	ChainGetMessagesInTipset func(context.Context, types.TipSetKey) ([]apitypes.Message, error)
+	ChainGetParentMessages   func(ctx context.Context, bcid cid.Cid) ([]apitypes.Message, error)
+	ChainGetParentReceipts   func(context.Context, cid.Cid) ([]*types.MessageReceipt, error)
+	StateAccountKey          func(ctx context.Context, addr address.Address, tsk types.TipSetKey) (address.Address, error)
+	StateSearchMsg           func(context.Context, cid.Cid) (*chain.MsgLookup, error)
+	StateGetActor            func(context.Context, address.Address, types.TipSetKey) (*types.Actor, error)
+	StateLookupID            func(ctx context.Context, addr address.Address, tsk types.TipSetKey) (address.Address, error)
 
 	GasEstimateMessageGas      func(context.Context, *types.UnsignedMessage, *types.MessageSendSpec, types.TipSetKey) (*types.UnsignedMessage, error)
 	GasEstimateFeeCap          func(context.Context, *types.UnsignedMessage, int64, types.TipSetKey) (big.Int, error)

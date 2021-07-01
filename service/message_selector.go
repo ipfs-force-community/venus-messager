@@ -79,6 +79,7 @@ func (messageSelector *MessageSelector) SelectMessage(ctx context.Context, ts *v
 	if err != nil {
 		return nil, err
 	}
+
 	//sort by addr weight
 	sort.Slice(addrList, func(i, j int) bool {
 		return addrList[i].Weight < addrList[j].Weight
@@ -356,25 +357,14 @@ func (messageSelector *MessageSelector) getNonceInTipset(ctx context.Context, ts
 		return nil
 	}
 
-	for _, b := range ts.Blocks() {
-		fullBlk, err := messageSelector.nodeClient.ChainGetBlockMessages(ctx, b.Cid())
+	msgs, err := messageSelector.nodeClient.ChainGetMessagesInTipset(ctx, ts.Key())
+	if err != nil {
+		return nil, xerrors.Errorf("failed to get message in tipset %v", err)
+	}
+	for _, msg := range msgs {
+		err := selectMsg(msg.Message)
 		if err != nil {
-			return nil, xerrors.Errorf("failed to get messages for block: %w", err)
-		}
-
-		for _, bmsg := range fullBlk.BlsMessages {
-			err := selectMsg(bmsg.VMMessage())
-			if err != nil {
-				return nil, xerrors.Errorf("failed to decide whether to select message for block: %w", err)
-			}
-
-		}
-
-		for _, smsg := range fullBlk.SecpkMessages {
-			err := selectMsg(smsg.VMMessage())
-			if err != nil {
-				return nil, xerrors.Errorf("failed to decide whether to select message for block: %w", err)
-			}
+			return nil, xerrors.Errorf("failed to decide whether to select message for block: %w", err)
 		}
 	}
 

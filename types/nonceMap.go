@@ -1,8 +1,9 @@
 package types
 
 import (
-	"github.com/filecoin-project/go-address"
 	"sync"
+
+	"github.com/filecoin-project/go-address"
 )
 
 type NonceMap struct {
@@ -27,8 +28,8 @@ func (nonceMap *NonceMap) Get(addr address.Address) (uint64, bool) {
 }
 
 func (nonceMap *NonceMap) Add(addr address.Address, val uint64) {
-	nonceMap.lk.RLock()
-	defer nonceMap.lk.RUnlock()
+	nonceMap.lk.Lock()
+	defer nonceMap.lk.Unlock()
 	nonceMap.nonceMap[addr] = val
 }
 
