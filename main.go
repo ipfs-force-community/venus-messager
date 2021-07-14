@@ -63,6 +63,10 @@ var runCmd = &cli.Command{
 			Name:  "auth-url",
 			Usage: "url for auth server",
 		},
+		&cli.StringFlag{
+			Name:  "auth-token",
+			Usage: "auth token",
+		},
 
 		//node
 		&cli.StringFlag{
@@ -95,10 +99,6 @@ var runCmd = &cli.Command{
 		&cli.StringFlag{
 			Name:  "gateway-token",
 			Usage: "gateway token",
-		},
-		&cli.StringFlag{
-			Name:  "auth-token",
-			Usage: "auth token",
 		},
 	},
 	Action: runAction,

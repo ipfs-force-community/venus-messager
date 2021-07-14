@@ -10,6 +10,7 @@ import (
 
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/venus/pkg/chain"
 	"github.com/filecoin-project/venus/pkg/specactors/builtin"
 	venusTypes "github.com/filecoin-project/venus/pkg/types"
 	cbg "github.com/whyrusleeping/cbor-gen"
@@ -87,7 +88,7 @@ func (ms *MessageService) decodeTypedParamsFromJSON(ctx context.Context, to addr
 		return nil, err
 	}
 
-	methodMeta, found := types.MethodsMap[act.Code][method]
+	methodMeta, found := chain.MethodsMap[act.Code][method]
 	if !found {
 		return nil, fmt.Errorf("method %d not found on actor %s", method, act.Code)
 	}
