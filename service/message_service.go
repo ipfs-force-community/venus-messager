@@ -156,7 +156,7 @@ func (ms *MessageService) pushMessage(ctx context.Context, msg *types.Message) e
 	}); err != nil {
 		return err
 	}
-	if addrInfo.State == types.Forbiden {
+	if addrInfo != nil && addrInfo.State == types.Forbiden {
 		ms.log.Errorf("address(%s) is forbidden", msg.From.String())
 		return xerrors.Errorf("address(%s) is forbidden", msg.From.String())
 	}
