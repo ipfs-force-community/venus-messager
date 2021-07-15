@@ -432,7 +432,7 @@ func (messageSelector *MessageSelector) addrSelectMsgNum(addrList []*types.Addre
 	}
 	selMsgNum := make(map[address.Address]uint64)
 	for _, addr := range addrList {
-		if num, ok := selMsgNum[addr.Addr]; ok && (num < addr.SelMsgNum || addr.SelMsgNum < defSelMsgNum) {
+		if num, ok := selMsgNum[addr.Addr]; ok && addr.SelMsgNum > 0 && num < addr.SelMsgNum {
 			selMsgNum[addr.Addr] = addr.SelMsgNum
 		} else if !ok {
 			if addr.SelMsgNum == 0 {

@@ -14,7 +14,7 @@ import (
 
 type mysqlAddress struct {
 	ID                types.UUID  `gorm:"column:id;type:varchar(256);primary_key"`
-	Addr              string      `gorm:"column:addr;type:varchar(256);NOT NULL"` // 主键
+	Addr              string      `gorm:"column:addr;type:varchar(256);uniqueIndex;NOT NULL"`
 	Nonce             uint64      `gorm:"column:nonce;type:bigint unsigned;index;NOT NULL"`
 	Weight            int64       `gorm:"column:weight;type:bigint;index;NOT NULL"`
 	SelMsgNum         uint64      `gorm:"column:sel_msg_num;type:bigint unsigned;NOT NULL"`
@@ -34,15 +34,16 @@ func (s mysqlAddress) TableName() string {
 
 func FromAddress(addr *types.Address) *mysqlAddress {
 	mysqlAddr := &mysqlAddress{
-		ID:        addr.ID,
-		Addr:      addr.Addr.String(),
-		Nonce:     addr.Nonce,
-		Weight:    addr.Weight,
-		SelMsgNum: addr.SelMsgNum,
-		State:     addr.State,
-		IsDeleted: addr.IsDeleted,
-		CreatedAt: addr.CreatedAt,
-		UpdatedAt: addr.UpdatedAt,
+		ID:                addr.ID,
+		Addr:              addr.Addr.String(),
+		Nonce:             addr.Nonce,
+		Weight:            addr.Weight,
+		SelMsgNum:         addr.SelMsgNum,
+		State:             addr.State,
+		GasOverEstimation: addr.GasOverEstimation,
+		IsDeleted:         addr.IsDeleted,
+		CreatedAt:         addr.CreatedAt,
+		UpdatedAt:         addr.UpdatedAt,
 	}
 
 	if !addr.MaxFee.Nil() {
@@ -61,17 +62,18 @@ func (s mysqlAddress) Address() (*types.Address, error) {
 		return nil, err
 	}
 	return &types.Address{
-		ID:        s.ID,
-		Addr:      addr,
-		Nonce:     s.Nonce,
-		Weight:    s.Weight,
-		SelMsgNum: s.SelMsgNum,
-		State:     s.State,
-		MaxFee:    big.Int{Int: s.MaxFee.Int},
-		MaxFeeCap: big.Int{Int: s.MaxFeeCap.Int},
-		IsDeleted: s.IsDeleted,
-		CreatedAt: s.CreatedAt,
-		UpdatedAt: s.UpdatedAt,
+		ID:                s.ID,
+		Addr:              addr,
+		Nonce:             s.Nonce,
+		Weight:            s.Weight,
+		SelMsgNum:         s.SelMsgNum,
+		State:             s.State,
+		MaxFee:            big.Int{Int: s.MaxFee.Int},
+		MaxFeeCap:         big.Int{Int: s.MaxFeeCap.Int},
+		GasOverEstimation: s.GasOverEstimation,
+		IsDeleted:         s.IsDeleted,
+		CreatedAt:         s.CreatedAt,
+		UpdatedAt:         s.UpdatedAt,
 	}, nil
 }
 

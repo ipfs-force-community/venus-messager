@@ -16,7 +16,7 @@ import (
 
 type sqliteAddress struct {
 	ID                types.UUID  `gorm:"column:id;type:varchar(256);primary_key"`
-	Addr              string      `gorm:"column:addr;type:varchar(256);NOT NULL"` // 主键
+	Addr              string      `gorm:"column:addr;type:varchar(256);uniqueIndex;NOT NULL"`
 	Nonce             uint64      `gorm:"column:nonce;type:unsigned bigint;index;NOT NULL"`
 	Weight            int64       `gorm:"column:weight;type:bigint;index;NOT NULL"`
 	SelMsgNum         uint64      `gorm:"column:sel_msg_num;type:unsigned bigint;NOT NULL"`

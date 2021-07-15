@@ -71,7 +71,7 @@ func TestAddress(t *testing.T) {
 		t.Run("SaveAddress", func(t *testing.T) {
 			assert.NoError(t, addressRepo.SaveAddress(ctx, addrInfo))
 			assert.NoError(t, addressRepo.SaveAddress(ctx, addrInfo2))
-			assert.NoError(t, addressRepo.SaveAddress(ctx, addrInfo3))
+			assert.Error(t, addressRepo.SaveAddress(ctx, addrInfo3))
 		})
 
 		checkField := func(t *testing.T, expect, actual *types.Address) {
@@ -170,7 +170,7 @@ func TestAddress(t *testing.T) {
 		t.Run("ListAddress", func(t *testing.T) {
 			rs, err := addressRepo.ListAddress(ctx)
 			assert.NoError(t, err)
-			assert.LessOrEqual(t, 2, len(rs))
+			assert.LessOrEqual(t, 1, len(rs))
 		})
 	}
 

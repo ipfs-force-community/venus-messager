@@ -129,9 +129,17 @@ func (ms *MessageService) pushMessage(ctx context.Context, msg *types.Message) e
 	if err != nil {
 		return err
 	}
-	if has {
-		saveAddr := func() error {
-			_, err = ms.addressService.SaveAddress(ctx, &types.Address{
+	if !has {
+		return xerrors.Errorf("wallet(%s) address %s not exists", msg.WalletName, msg.From)
+	}
+	var addrInfo *types.Address
+	if err := ms.repo.Transaction(func(txRepo repo.TxRepo) error {
+		addrInfo, err = ms.addressService.GetAddress(ctx, msg.From)
+		if err == nil {
+			return nil
+		}
+		if xerrors.Is(err, gorm.ErrRecordNotFound) {
+			if err = ms.repo.AddressRepo().SaveAddress(ctx, &types.Address{
 				ID:        types.NewUUID(),
 				Addr:      msg.From,
 				Nonce:     0,
@@ -139,25 +147,18 @@ func (ms *MessageService) pushMessage(ctx context.Context, msg *types.Message) e
 				IsDeleted: repo.NotDeleted,
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
-			})
-			return err
-		}
-		addrInfo, err := ms.addressService.GetAddress(ctx, msg.From)
-		if err != nil {
-			if xerrors.Is(err, gorm.ErrRecordNotFound) {
-				if err := saveAddr(); err != nil {
-					return xerrors.Errorf("save address %s failed %v", msg.From.String(), err)
-				}
-				ms.log.Infof("add new address %s", msg.From.String())
-			} else {
-				return err
+			}); err != nil {
+				return xerrors.Errorf("save address %s failed %v", msg.From.String(), err)
 			}
-		} else if addrInfo.State == types.Forbiden {
-			ms.log.Errorf("address(%s) is forbidden", msg.From.String())
-			return xerrors.Errorf("address(%s) is forbidden", msg.From.String())
+			ms.log.Infof("add new address %s", msg.From.String())
 		}
-	} else {
-		return xerrors.Errorf("wallet(%s) address %s not exists", msg.WalletName, msg.From)
+		return err
+	}); err != nil {
+		return err
+	}
+	if addrInfo.State == types.Forbiden {
+		ms.log.Errorf("address(%s) is forbidden", msg.From.String())
+		return xerrors.Errorf("address(%s) is forbidden", msg.From.String())
 	}
 
 	msg.Nonce = 0
