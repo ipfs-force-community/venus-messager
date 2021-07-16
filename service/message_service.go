@@ -15,6 +15,7 @@ import (
 	"github.com/filecoin-project/venus-auth/cmd/jwtclient"
 	"github.com/filecoin-project/venus-wallet/core"
 	"github.com/filecoin-project/venus/pkg/messagepool"
+	"github.com/filecoin-project/venus/pkg/specactors/builtin"
 	venusTypes "github.com/filecoin-project/venus/pkg/types"
 	"github.com/ipfs/go-cid"
 	"golang.org/x/xerrors"
@@ -112,6 +113,10 @@ func NewMessageService(repo repo.Repo,
 func (ms *MessageService) pushMessage(ctx context.Context, msg *types.Message) error {
 	if len(msg.ID) == 0 {
 		return xerrors.New("empty uid")
+	}
+
+	if msg.Method == builtin.MethodSend {
+		return xerrors.Errorf("not support send funds")
 	}
 
 	//replace address
